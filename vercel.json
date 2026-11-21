@@ -1,6 +1,5 @@
 {
-  "buildCommand": "bash vercel-build.sh",
-  "outputDirectory": "frontend/build/web",
+  "outputDirectory": "public",
   "cleanUrls": true,
   "rewrites": [
     {
@@ -8,8 +7,8 @@
       "destination": "/api/index.py"
     },
     {
-      "source": "/(.*)",
-      "destination": "/$1"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

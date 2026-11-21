@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   static const String appName = 'JalKawach';
   static const String appFullName =
@@ -7,7 +9,8 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // API Backend default configuration (FastAPI)
-  static const String defaultApiBaseUrl = 'http://10.0.2.2:8000/api/v1';
+  static String get defaultApiBaseUrl =>
+      kIsWeb ? '/api/v1' : 'http://10.0.2.2:8000/api/v1';
   static const String productionApiBaseUrl =
       'https://api.jalkawach.gov.in/api/v1';
 

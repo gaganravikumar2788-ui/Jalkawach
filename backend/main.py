@@ -1,9 +1,13 @@
+import os
 import math
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 import httpx
+
+# Internal Service Bindings (injected by Vercel at runtime)
+SCRIPTS_URL = os.environ.get("SCRIPTS_URL")
 
 app = FastAPI(
     title="JalKawach API",
@@ -113,6 +117,7 @@ class ForgotPasswordRequest(BaseModel):
 # 1. Email Verification API (Using Disify API from public-apis)
 # -------------------------------------------------------------
 @app.post("/api/v1/auth/validate-email")
+@app.post("/v1/auth/validate-email")
 async def validate_email(req: ValidateEmailRequest):
     email = req.email.strip().lower()
     if not email or "@" not in email:
@@ -167,6 +172,7 @@ async def validate_email(req: ValidateEmailRequest):
 # 2. Login & Authentication Endpoint
 # -------------------------------------------------------------
 @app.post("/api/v1/auth/login")
+@app.post("/v1/auth/login")
 async def login(req: LoginRequest):
     email = req.email.strip()
     if len(req.password) < 6:
@@ -193,6 +199,7 @@ async def login(req: LoginRequest):
 # 3. Forgot Password / Verification OTP Dispatch
 # -------------------------------------------------------------
 @app.post("/api/v1/auth/forgot-password")
+@app.post("/v1/auth/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest):
     email = req.email.strip().lower()
     email_check = await validate_email(ValidateEmailRequest(email=email))
@@ -220,6 +227,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return r * c
 
 @app.get("/api/v1/location/detect")
+@app.get("/v1/location/detect")
 async def detect_location(request: Request):
     client_ip = request.client.host if request.client else ""
     user_location = {
@@ -272,6 +280,7 @@ async def detect_location(request: Request):
 # 5. Live Weather & Flood Risk (Open-Meteo Public API)
 # -------------------------------------------------------------
 @app.get("/api/v1/weather/{location_id}")
+@app.get("/v1/weather/{location_id}")
 async def get_weather(location_id: str):
     location = next((l for l in PREDEFINED_LOCATIONS if l["id"] == location_id), PREDEFINED_LOCATIONS[0])
     lat = location["latitude"]
@@ -309,16 +318,44 @@ async def get_weather(location_id: str):
         "source": "JalKawach Telemetry Baseline",
     }
 
+# -------------------------------------------------------------
+# 6. Internal Scripts Service Integration (Using SCRIPTS_URL binding)
+# -------------------------------------------------------------
+@app.get("/api/v1/internal/scripts")
+@app.get("/v1/internal/scripts")
+async def call_scripts_service():
+    if not SCRIPTS_URL:
+        return {
+            "status": "unconfigured",
+            "message": "SCRIPTS_URL service binding is not set.",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(f"{SCRIPTS_URL.rstrip('/')}/health")
+            return {
+                "status": "connected",
+                "scripts_service_url": SCRIPTS_URL,
+                "data": resp.json() if resp.status_code == 200 else resp.text,
+            }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "scripts_service_url": SCRIPTS_URL,
+            "error": str(exc),
+        }
+
 @app.get("/")
 async def root():
     return {
         "app": "JalKawach API",
         "status": "active",
+        "scripts_binding": SCRIPTS_URL or "not_configured (scripts is internal)",
         "endpoints": [
             "/api/v1/auth/validate-email",
             "/api/v1/auth/login",
             "/api/v1/auth/forgot-password",
             "/api/v1/location/detect",
             "/api/v1/weather/{location_id}",
+            "/api/v1/internal/scripts",
         ],
     }

@@ -14,13 +14,25 @@ import '../utils/risk_level_helper.dart';
 /// Defaults to realistic mock demonstration data so the frontend is 100% operational
 /// without backend, while providing exact endpoints and models for future integration.
 class ApiService {
-  String baseUrl;
+  late String baseUrl;
   bool useMockData;
 
   ApiService({
-    this.baseUrl = AppConstants.defaultApiBaseUrl,
+    String? baseUrl,
     this.useMockData = true,
-  });
+  }) : baseUrl = baseUrl ?? AppConstants.defaultApiBaseUrl;
+
+  Uri _buildUri(String path, [Map<String, dynamic>? queryParameters]) {
+    if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+      final fullUrl = '$baseUrl$path';
+      final parsed = Uri.parse(fullUrl);
+      return queryParameters != null ? parsed.replace(queryParameters: queryParameters) : parsed;
+    }
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    final combined = '$baseUrl$cleanPath'.replaceAll('//', '/');
+    final resolved = Uri.base.resolve(combined);
+    return queryParameters != null ? resolved.replace(queryParameters: queryParameters) : resolved;
+  }
 
   // -------------------------------------------------------------
   // Weather Service
@@ -33,7 +45,7 @@ class ApiService {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/weather/$locationId'),
+        _buildUri('/weather/$locationId'),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 8));
 
@@ -60,7 +72,7 @@ class ApiService {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/flood-risk/$locationId'),
+        _buildUri('/flood-risk/$locationId'),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 8));
 
@@ -87,8 +99,8 @@ class ApiService {
 
     try {
       final uri = locationId != null
-          ? Uri.parse('$baseUrl/alerts?location_id=$locationId')
-          : Uri.parse('$baseUrl/alerts');
+          ? _buildUri('/alerts', {'location_id': locationId})
+          : _buildUri('/alerts');
 
       final response = await http.get(
         uri,
@@ -118,7 +130,7 @@ class ApiService {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/disasters/monitor'),
+        _buildUri('/disasters/monitor'),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 8));
 
@@ -145,8 +157,8 @@ class ApiService {
 
     try {
       final uri = locationId != null
-          ? Uri.parse('$baseUrl/shelters?location_id=$locationId')
-          : Uri.parse('$baseUrl/shelters');
+          ? _buildUri('/shelters', {'location_id': locationId})
+          : _buildUri('/shelters');
 
       final response = await http.get(
         uri,
@@ -758,7 +770,7 @@ class ApiService {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/validate-email'),
+        _buildUri('/auth/validate-email'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': cleanEmail}),
       ).timeout(const Duration(seconds: 4));
@@ -821,7 +833,7 @@ class ApiService {
     }
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/location/detect'),
+        _buildUri('/location/detect'),
       ).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -867,7 +879,7 @@ class ApiService {
   Future<Map<String, dynamic>> requestPasswordReset(String email) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/forgot-password'),
+        _buildUri('/auth/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email.trim().toLowerCase()}),
       ).timeout(const Duration(seconds: 4));
